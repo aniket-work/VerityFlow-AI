@@ -3,6 +3,4 @@ venv/
 __pycache__/
 *.pyc
 .env
-images/*.png
-images/*.gif
 article_ouput_tobe_deleted_after_article_done/
