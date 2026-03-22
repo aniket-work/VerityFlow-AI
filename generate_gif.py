@@ -1,142 +1,145 @@
 import os
 from PIL import Image, ImageDraw, ImageFont
-import json
+import time
 
-# Configuration
-WIDTH, HEIGHT = 900, 550
-BG_COLOR = (20, 20, 25)
-TERM_COLOR = (30, 30, 35)
-TEXT_COLOR = (240, 240, 240)
-HEADER_COLOR = (60, 60, 70)
-GREEN = (80, 250, 123)
-BLUE = (139, 233, 253)
-YELLOW = (241, 250, 140)
-RED = (255, 85, 85)
+# Constants
+WIDTH, HEIGHT = 1200, 800
+FPS = 10
+FRAME_DURATION = 100/1000  # seconds
+VENV_PATH = "./venv/bin/python"
 
-def create_terminal_frame(commands, lines, cursor_pos=None, show_table=False):
-    """Creates a frame mimicking a Mac-style terminal."""
-    img = Image.new("RGB", (WIDTH, HEIGHT), BG_COLOR)
+# Fonts - Using standard system fonts for portability
+try:
+    MONO_FONT = ImageFont.truetype("/System/Library/Fonts/Courier.ttc", 20)
+    SANS_FONT = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", 24)
+    BOLD_FONT = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", 32)
+except:
+    MONO_FONT = ImageFont.load_default()
+    SANS_FONT = ImageFont.load_default()
+    BOLD_FONT = ImageFont.load_default()
+
+def create_terminal_frame(text_lines, cursor_on=True):
+    img = Image.new('RGB', (WIDTH, HEIGHT), (30, 30, 30))
     draw = ImageDraw.Draw(img)
     
-    # Terminal Window
-    term_x, term_y = 50, 50
-    term_w, term_h = WIDTH - 100, HEIGHT - 100
-    draw.rounded_rectangle([term_x, term_y, term_x + term_w, term_y + term_h], radius=10, fill=TERM_COLOR)
+    # Mac Window Controls
+    draw.ellipse([20, 20, 35, 35], fill=(255, 95, 87)) # Red
+    draw.ellipse([45, 20, 60, 35], fill=(255, 189, 46)) # Yellow
+    draw.ellipse([70, 20, 85, 35], fill=(39, 201, 63)) # Green
     
-    # Header Bar
-    draw.rounded_rectangle([term_x, term_y, term_x + term_w, term_y + 30], radius=10, fill=HEADER_COLOR)
-    # Buttons
-    for i, color in enumerate([RED, YELLOW, GREEN]):
-        draw.ellipse([term_x + 10 + (i * 20), term_y + 8, term_x + 22 + (i * 20), term_y + 20], fill=color)
+    # Title Bar
+    draw.text((WIDTH//2 - 100, 18), "zsh — VerityFlow-AI — 80x24", fill=(180, 180, 180), font=SANS_FONT)
     
-    # Font
-    try:
-        font = ImageFont.truetype("/System/Library/Fonts/Monaco.ttf", 16)
-        bold_font = ImageFont.truetype("/System/Library/Fonts/Monaco.ttf", 18)
-    except:
-        font = ImageFont.load_default()
-        bold_font = ImageFont.load_default()
-
-    # Content
-    y_offset = term_y + 45
-    for line in lines:
-        draw.text((term_x + 20, y_offset), line, font=font, fill=TEXT_COLOR)
-        y_offset += 25
-    
-    if cursor_pos:
-        draw.rectangle([cursor_pos[0], cursor_pos[1], cursor_pos[0] + 10, cursor_pos[1] + 20], fill=TEXT_COLOR)
-
-    if show_table:
-        table_lines = [
-            "+----------+-------+------------+---------+",
-            "| SITE_ID  | SCORE | INCOME     | TRAFFIC |",
-            "+----------+-------+------------+---------+",
-            "| SITE_020 | 79.55 | $94,690    | 4465    |",
-            "| SITE_017 | 78.74 | $104,022   | 3707    |",
-            "| SITE_039 | 77.47 | $112,373   | 3997    |",
-            "+----------+-------+------------+---------+"
-        ]
-        for line in table_lines:
-            draw.text((term_x + 20, y_offset), line, font=font, fill=YELLOW)
-            y_offset += 22
-
+    # Terminal Content
+    y = 60
+    for line in text_lines:
+        draw.text((30, y), line, fill=(230, 230, 230), font=MONO_FONT)
+        y += 30
+        
+    if cursor_on:
+        last_line_width = draw.textlength(text_lines[-1], font=MONO_FONT)
+        draw.rectangle([30 + last_line_width, y - 30, 30 + last_line_width + 10, y - 5], fill=(200, 200, 200))
+        
     return img
 
-def create_ui_frame(title, stats):
-    """Creates a premium UI frame showing analysis results."""
-    img = Image.new("RGB", (WIDTH, HEIGHT), (30, 32, 40))
+def create_ui_frame(results_data):
+    img = Image.new('RGB', (WIDTH, HEIGHT), (240, 245, 250))
     draw = ImageDraw.Draw(img)
     
-    # Simple UI Cards
-    draw.text((50, 50), title, fill=BLUE, font_size=32)
+    # Header
+    draw.rectangle([0, 0, WIDTH, 80], fill=(74, 144, 226))
+    draw.text((40, 20), "VerityFlow-AI: Truth Dashboard", fill=(255, 255, 255), font=BOLD_FONT)
     
-    card_x = 50
-    card_y = 120
-    for key, val in stats.items():
-        draw.rounded_rectangle([card_x, card_y, card_x + 350, card_y + 80], radius=12, fill=(45, 48, 60))
-        draw.text((card_x + 20, card_y + 15), key.replace('_', ' ').title(), fill=TEXT_COLOR, font_size=18)
-        draw.text((card_x + 20, card_y + 40), str(val), fill=GREEN, font_size=24)
-        card_y += 100
-        if card_y > 400:
-            card_x += 400
-            card_y = 120
-            
+    # Summary Card
+    draw.rounded_rectangle([50, 120, WIDTH-50, 300], radius=15, fill=(255, 255, 255), outline=(200, 200, 200), width=1)
+    draw.text((80, 140), "Executive Summary", fill=(50, 50, 50), font=BOLD_FONT)
+    draw.text((80, 190), "Autonomous swarm has validated 3 core claims regarding 'Synthetic Media in 2026 Elections'.", fill=(80, 80, 80), font=SANS_FONT)
+    draw.text((80, 230), "Overall Credibility Score: 42% (Warning: High Bias Detected)", fill=(200, 50, 50), font=SANS_FONT)
+    
+    # Table Results
+    y = 350
+    headers = ["Claim", "Status", "Confidence", "Bias Source"]
+    col_widths = [400, 150, 150, 250]
+    
+    x = 80
+    for i, h in enumerate(headers):
+        draw.text((x, y), h, fill=(100, 100, 100), font=BOLD_FONT)
+        x += col_widths[i]
+        
+    y += 50
+    for row in results_data:
+        x = 80
+        for i, val in enumerate(row):
+            color = (50, 50, 50)
+            if val == "DEBUNKED": color = (200, 50, 50)
+            if val == "VERIFIED": color = (50, 150, 50)
+            draw.text((x, y), str(val), fill=color, font=SANS_FONT)
+            x += col_widths[i]
+        y += 40
+        draw.line([80, y-10, WIDTH-80, y-10], fill=(220, 220, 220))
+        
     return img
 
 def generate_gif():
     frames = []
     
-    # 1. Terminal Part: Typing commands
-    cmd = "$ python main.py"
-    current_lines = []
-    for i in range(len(cmd) + 1):
-        lines = [cmd[:i]]
-        frames.append(create_terminal_frame(cmd, lines, cursor_pos=(50 + 20 + len(cmd[:i])*10, 50 + 45)))
+    # Part 1: Terminal Typing
+    terminal_lines = ["$ ", "$ python main.py", "--- VerityFlow-AI: Starting Swarm ---"]
+    command = "python main.py"
+    current_line = "$ "
     
-    # 2. Execution Logs
-    logs = [
-        "--- [SiteScanner-AI] Starting Analysis ---",
-        "[1/5] Synthesizing urban geospatial layers...",
-        "[2/5] Running spatial optimization models...",
-        "[3/5] Identifying strategic corridors...",
-        "[4/5] Generating interactive visualization...",
-        "[5/5] Analysis complete! Map saved."
+    # Typing command
+    for char in command:
+        current_line += char
+        frames.append(create_terminal_frame([current_line]))
+        
+    # Running
+    frames.append(create_terminal_frame([current_line, "--- VerityFlow-AI: Starting Swarm ---"]))
+    frames.append(create_terminal_frame([current_line, "--- VerityFlow-AI: Starting Swarm ---", "[Lead] Identifying core claims..."]))
+    frames.append(create_terminal_frame([current_line, "--- VerityFlow-AI: Starting Swarm ---", "[Lead] Identifying core claims...", "[Analyst] Searching global news archives..."]))
+    frames.append(create_terminal_frame([current_line, "--- VerityFlow-AI: Starting Swarm ---", "[Lead] Identifying core claims...", "[Analyst] Searching global news archives...", "[Auditor] Auditing sentiment markers..."]))
+    
+    # ASCII Table Output
+    ascii_table = [
+        "+--------------------------------+------------+------------+",
+        "| Claim                          | Status     | Bias       |",
+        "+--------------------------------+------------+------------+",
+        "| AI Video in Swing States       | DEBUNKED   | Extreme    |",
+        "| Deepfake Audio Leaks           | VERIFIED   | Moderate   |",
+        "| Automated Bot Swarms           | VERIFIED   | High       |",
+        "+--------------------------------+------------+------------+",
     ]
-    for i in range(len(logs) + 1):
-        display_lines = [cmd] + logs[:i]
-        for _ in range(2): # Hold slightly
-            frames.append(create_terminal_frame(cmd, display_lines))
+    for i in range(len(ascii_table)):
+        frames.append(create_terminal_frame(terminal_lines[2:] + ascii_table[:i+1]))
+        
+    # Hold terminal
+    for _ in range(20): frames.append(frames[-1])
     
-    # 3. Final Table
-    frames.append(create_terminal_frame(cmd, display_lines + ["", "Top Recommendations:"], show_table=True))
-    for _ in range(15): # Hold terminal table
-        frames.append(create_terminal_frame(cmd, display_lines + ["", "Top Recommendations:"], show_table=True))
-
-    # 4. Transition to UI
-    stats = {
-        "Total Sites Analyzed": 40,
-        "Optimal Locations Found": 5,
-        "Avg Reliability Score": "76.4%",
-        "Target City": "San Francisco",
-        "Competitor Proximity": "Safe"
-    }
-    ui_frame = create_ui_frame("SiteScanner-AI Dashboard", stats)
-    for _ in range(25): # Hold UI
-        frames.append(ui_frame)
-
-    # MANDATORY: Savig with Global Palette and P-Mode
-    print("Optimizing GIF with global palette...")
+    # Transition to UI
+    ui_data = [
+        ["AI Video in Swing States", "DEBUNKED", "98%", "Hyper-Partisan PAC"],
+        ["Deepfake Audio Leaks", "VERIFIED", "89%", "State-Sponsored"],
+        ["Automated Bot Swarms", "VERIFIED", "94%", "Undisclosed Ad-Tech"],
+    ]
+    ui_frame = create_ui_frame(ui_data)
+    for _ in range(40): frames.append(ui_frame)
+    
+    # Save with Optimized Palette
+    print("--- Saving Optimized GIF ---")
+    OUTPUT = "images/title-animation.gif"
+    os.makedirs("images", exist_ok=True)
+    
+    # Generate global palette from sample frames (MANDATORY)
     sample = Image.new("RGB", (WIDTH, HEIGHT * 3))
     sample.paste(frames[0], (0,0))
-    sample.paste(frames[len(frames)//2], (0, HEIGHT))
-    sample.paste(frames[-1], (0, HEIGHT*2))
+    sample.paste(frames[len(frames)//2], (0,HEIGHT))
+    sample.paste(frames[-1], (0,HEIGHT*2))
     palette = sample.quantize(colors=256, method=2)
     
+    # Convert all frames to P-mode using global palette (No Dither)
     final_frames = [f.quantize(palette=palette, dither=Image.Dither.NONE) for f in frames]
-    os.makedirs("images", exist_ok=True)
-    OUTPUT = "images/title-animation.gif"
     final_frames[0].save(OUTPUT, save_all=True, append_images=final_frames[1:], optimize=True, loop=0, duration=100)
-    print(f"✅ Saved {OUTPUT}")
+    print(f"GIF generated successfully at {OUTPUT}")
 
 if __name__ == "__main__":
     generate_gif()
